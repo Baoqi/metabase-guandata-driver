@@ -7,7 +7,7 @@
     [medley.core :as m]
     [metabase.config :as config]
     [metabase.driver :as driver]
-    [metabase.driver.hive-like :as hive-like]
+    [metabase.driver.guandata-hive-like :as guandata-hive-like]
     [metabase.driver.sql-jdbc.common :as sql-jdbc.common]
     [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
     [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
@@ -27,7 +27,7 @@
 
 (set! *warn-on-reflection* true)
 
-(driver/register! :guandata, :parent :hive-like)
+(driver/register! :guandata, :parent :guandata-hive-like)
 
 ;;; ------------------------------------------ Custom HoneySQL Clause Impls ------------------------------------------
 
@@ -39,7 +39,7 @@
   [driver [_ _ {::sql.params.substitution/keys [compiling-field-filter?]} :as field-clause]]
   ;; use [[source-table-alias]] instead of the usual `schema.table` to qualify fields e.g. `t1.field` instead of the
   ;; normal `schema.table.field`
-  (let [parent-method (get-method sql.qp/->honeysql [:hive-like :field])
+  (let [parent-method (get-method sql.qp/->honeysql [:guandata-hive-like :field])
         field-clause  (mbql.u/update-field-options field-clause
                                                    update
                                                    ::add/source-table
@@ -216,7 +216,7 @@
   (let [inner-query (-> (assoc inner-query
                           :remark (qp.util/query->remark :guandata outer-query)
                           :query  (if (seq params)
-                                    (binding [hive-like/*param-splice-style* :paranoid]
+                                    (binding [guandata-hive-like/*param-splice-style* :paranoid]
                                       (unprepare/unprepare driver (cons sql params)))
                                     sql)
                           :max-rows (mbql.u/query->max-rows-limit outer-query))

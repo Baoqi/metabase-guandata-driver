@@ -1,4 +1,4 @@
-(ns metabase.driver.hive-like
+(ns metabase.driver.guandata-hive-like
   (:require
     [buddy.core.codecs :as codecs]
     [clojure.string :as str]
@@ -8,7 +8,6 @@
     [metabase.driver.sql-jdbc.connection :as sql-jdbc.conn]
     [metabase.driver.sql-jdbc.execute :as sql-jdbc.execute]
     [metabase.driver.sql-jdbc.execute.legacy-impl :as sql-jdbc.legacy]
-    [metabase.driver.sql-jdbc.sync :as sql-jdbc.sync]
     [metabase.driver.sql.query-processor :as sql.qp]
     [metabase.driver.sql.util :as sql.u]
     [metabase.driver.sql.util.unprepare :as unprepare]
@@ -20,14 +19,14 @@
 
 (set! *warn-on-reflection* true)
 
-(driver/register! :hive-like
+(driver/register! :guandata-hive-like
                   :parent #{:sql-jdbc ::sql-jdbc.legacy/use-legacy-classes-for-read-and-set}
                   :abstract? true)
 
-(defmethod driver/database-supports? [:hive-like :now] [_driver _feat _db] true)
-(defmethod driver/database-supports? [:hive-like :datetime-diff] [_driver _feat _db] true)
+(defmethod driver/database-supports? [:guandata-hive-like :now] [_driver _feat _db] true)
+(defmethod driver/database-supports? [:guandata-hive-like :datetime-diff] [_driver _feat _db] true)
 
-(defmethod driver/escape-alias :hive-like
+(defmethod driver/escape-alias :guandata-hive-like
   [driver s]
   ;; replace question marks inside aliases with `_QMARK_`, otherwise Spark SQL will interpret them as JDBC parameter
   ;; placeholder (yes, even if the identifier is quoted... (:unamused:)
@@ -37,11 +36,11 @@
   (let [s (str/replace s #"\?" "_QMARK_")]
     ((get-method driver/escape-alias :sql) driver s)))
 
-(defmethod driver/db-start-of-week :hive-like
+(defmethod driver/db-start-of-week :guandata-hive-like
   [_]
   :sunday)
 
-(defmethod sql-jdbc.conn/data-warehouse-connection-pool-properties :hive-like
+(defmethod sql-jdbc.conn/data-warehouse-connection-pool-properties :guandata-hive-like
   [driver database]
   ;; The Hive JDBC driver doesn't support `Connection.isValid()`, so we need to supply a test query for c3p0 to use to
   ;; validate connections upon checkout.
@@ -50,15 +49,15 @@
     {"preferredTestQuery" "SELECT 1"}))
 
 
-(defmethod sql.qp/honey-sql-version :hive-like
+(defmethod sql.qp/honey-sql-version :guandata-hive-like
   [_driver]
   2)
 
-(defmethod sql.qp/current-datetime-honeysql-form :hive-like
+(defmethod sql.qp/current-datetime-honeysql-form :guandata-hive-like
   [_]
   (h2x/with-database-type-info :%now "timestamp"))
 
-(defmethod sql.qp/unix-timestamp->honeysql [:hive-like :seconds]
+(defmethod sql.qp/unix-timestamp->honeysql [:guandata-hive-like :seconds]
   [_ _ expr]
   (h2x/->timestamp [:from_unixtime expr]))
 
@@ -68,21 +67,22 @@
 (defn- str-to-date [format-str expr]
   (h2x/->timestamp [:from_unixtime [:unix_timestamp expr (h2x/literal format-str)]]))
 
-(defn- trunc-with-format [format-str expr]
-  (str-to-date format-str (date-format format-str expr)))
+(defn- date-trunc [unit expr]
+  [:date_trunc (h2x/literal unit) (h2x/->timestamp expr)])
 
-(defmethod sql.qp/date [:hive-like :default]         [_ _ expr] (h2x/->timestamp expr))
-(defmethod sql.qp/date [:hive-like :minute]          [_ _ expr] (trunc-with-format "yyyy-MM-dd HH:mm" (h2x/->timestamp expr)))
-(defmethod sql.qp/date [:hive-like :minute-of-hour]  [_ _ expr] [:minute (h2x/->timestamp expr)])
-(defmethod sql.qp/date [:hive-like :hour]            [_ _ expr] (trunc-with-format "yyyy-MM-dd HH" (h2x/->timestamp expr)))
-(defmethod sql.qp/date [:hive-like :hour-of-day]     [_ _ expr] [:hour (h2x/->timestamp expr)])
-(defmethod sql.qp/date [:hive-like :day]             [_ _ expr] (trunc-with-format "yyyy-MM-dd" (h2x/->timestamp expr)))
-(defmethod sql.qp/date [:hive-like :day-of-month]    [_ _ expr] [:dayofmonth (h2x/->timestamp expr)])
-(defmethod sql.qp/date [:hive-like :day-of-year]     [_ _ expr] (h2x/->integer (date-format "D" (h2x/->timestamp expr))))
-(defmethod sql.qp/date [:hive-like :month]           [_ _ expr] [:trunc (h2x/->timestamp expr) (h2x/literal :MM)])
-(defmethod sql.qp/date [:hive-like :month-of-year]   [_ _ expr] [:month (h2x/->timestamp expr)])
-(defmethod sql.qp/date [:hive-like :quarter-of-year] [_ _ expr] [:quarter (h2x/->timestamp expr)])
-(defmethod sql.qp/date [:hive-like :year]            [_ _ expr] [:trunc (h2x/->timestamp expr) (h2x/literal :year)])
+(defmethod sql.qp/date [:guandata-hive-like :default]         [_ _ expr] (h2x/->timestamp expr))
+(defmethod sql.qp/date [:guandata-hive-like :minute]          [_ _ expr] (date-trunc :minute expr))
+(defmethod sql.qp/date [:guandata-hive-like :minute-of-hour]  [_ _ expr] [:minute (h2x/->timestamp expr)])
+(defmethod sql.qp/date [:guandata-hive-like :hour]            [_ _ expr] (date-trunc :hour expr))
+(defmethod sql.qp/date [:guandata-hive-like :hour-of-day]     [_ _ expr] [:hour (h2x/->timestamp expr)])
+(defmethod sql.qp/date [:guandata-hive-like :day]             [_ _ expr] (date-trunc :day expr))
+(defmethod sql.qp/date [:guandata-hive-like :day-of-month]    [_ _ expr] [:dayofmonth (h2x/->timestamp expr)])
+(defmethod sql.qp/date [:guandata-hive-like :day-of-year]     [_ _ expr] (h2x/->integer (date-format "D" (h2x/->timestamp expr))))
+(defmethod sql.qp/date [:guandata-hive-like :month]           [_ _ expr] (date-trunc :month expr))
+(defmethod sql.qp/date [:guandata-hive-like :month-of-year]   [_ _ expr] [:month (h2x/->timestamp expr)])
+(defmethod sql.qp/date [:guandata-hive-like :quarter]         [_ _ expr] (date-trunc :quarter expr))
+(defmethod sql.qp/date [:guandata-hive-like :quarter-of-year] [_ _ expr] [:quarter (h2x/->timestamp expr)])
+(defmethod sql.qp/date [:guandata-hive-like :year]            [_ _ expr] (date-trunc :year expr))
 
 (def ^:private date-extract-units
   "See https://spark.apache.org/docs/3.3.0/api/sql/#extract"
@@ -119,12 +119,12 @@
 
 (sql/register-fn! ::interval #'format-interval)
 
-(defmethod sql.qp/date [:hive-like :day-of-week]
+(defmethod sql.qp/date [:guandata-hive-like :day-of-week]
   [driver _unit expr]
   (sql.qp/adjust-day-of-week driver (-> [::date-extract :dow (h2x/->timestamp expr)]
                                         (h2x/with-database-type-info "integer"))))
 
-(defmethod sql.qp/date [:hive-like :week]
+(defmethod sql.qp/date [:guandata-hive-like :week]
   [driver _unit expr]
   (let [week-extract-fn (fn [expr]
                           (-> [:date_sub
@@ -135,73 +135,65 @@
     (sql.qp/adjust-start-of-week driver week-extract-fn expr)))
 
 
-(defmethod sql.qp/date [:hive-like :week-of-year-iso]
+(defmethod sql.qp/date [:guandata-hive-like :week-of-year-iso]
   [_driver _unit expr]
   [:weekofyear (h2x/->timestamp expr)])
 
-(defmethod sql.qp/date [:hive-like :quarter]
-  [_driver _unit expr]
-  [:add_months
-   [:trunc (h2x/->timestamp expr) (h2x/literal :year)]
-   (h2x/* (h2x/- [:quarter (h2x/->timestamp expr)]
-                 1)
-          3)])
-
-(defmethod sql.qp/->honeysql [:hive-like :replace]
+(defmethod sql.qp/->honeysql [:guandata-hive-like :replace]
   [driver [_ arg pattern replacement]]
   [:regexp_replace
    (sql.qp/->honeysql driver arg)
    (sql.qp/->honeysql driver pattern)
    (sql.qp/->honeysql driver replacement)])
 
-(defmethod sql.qp/->honeysql [:hive-like :regex-match-first]
+(defmethod sql.qp/->honeysql [:guandata-hive-like :regex-match-first]
   [driver [_ arg pattern]]
   [:regexp_extract (sql.qp/->honeysql driver arg) (sql.qp/->honeysql driver pattern) 0])
 
-(defmethod sql.qp/->honeysql [:hive-like :median]
+(defmethod sql.qp/->honeysql [:guandata-hive-like :median]
   [driver [_ arg]]
   [:percentile (sql.qp/->honeysql driver arg) 0.5])
 
-(defmethod sql.qp/->honeysql [:hive-like :percentile]
+(defmethod sql.qp/->honeysql [:guandata-hive-like :percentile]
   [driver [_ arg p]]
   [:percentile (sql.qp/->honeysql driver arg) (sql.qp/->honeysql driver p)])
 
-(defmethod sql.qp/add-interval-honeysql-form :hive-like
+(defmethod sql.qp/add-interval-honeysql-form :guandata-hive-like
   [driver hsql-form amount unit]
   (if (= unit :quarter)
     (recur driver hsql-form (* amount 3) :month)
     (h2x/+ (h2x/->timestamp hsql-form)
            [::interval amount unit])))
 
-(defmethod sql.qp/datetime-diff [:hive-like :year]
+(defmethod sql.qp/datetime-diff [:guandata-hive-like :year]
   [driver _unit x y]
   [:div (sql.qp/datetime-diff driver :month x y) 12])
 
-(defmethod sql.qp/datetime-diff [:hive-like :quarter]
+(defmethod sql.qp/datetime-diff [:guandata-hive-like :quarter]
   [driver _unit x y]
   [:div (sql.qp/datetime-diff driver :month x y) 3])
 
-(defmethod sql.qp/datetime-diff [:hive-like :month]
+(defmethod sql.qp/datetime-diff [:guandata-hive-like :month]
   [_driver _unit x y]
   (h2x/->integer [:months_between y x]))
 
-(defmethod sql.qp/datetime-diff [:hive-like :week]
+(defmethod sql.qp/datetime-diff [:guandata-hive-like :week]
   [_driver _unit x y]
   [:div [:datediff y x] 7])
 
-(defmethod sql.qp/datetime-diff [:hive-like :day]
+(defmethod sql.qp/datetime-diff [:guandata-hive-like :day]
   [_driver _unit x y]
   [:datediff y x])
 
-(defmethod sql.qp/datetime-diff [:hive-like :hour]
+(defmethod sql.qp/datetime-diff [:guandata-hive-like :hour]
   [driver _unit x y]
   [:div (sql.qp/datetime-diff driver :second x y) 3600])
 
-(defmethod sql.qp/datetime-diff [:hive-like :minute]
+(defmethod sql.qp/datetime-diff [:guandata-hive-like :minute]
   [driver _unit x y]
   [:div (sql.qp/datetime-diff driver :second x y) 60])
 
-(defmethod sql.qp/datetime-diff [:hive-like :second]
+(defmethod sql.qp/datetime-diff [:guandata-hive-like :second]
   [_driver _unit x y]
   [:- [:unix_timestamp y] [:unix_timestamp x]])
 
@@ -212,7 +204,7 @@
   strings so SQL injection is impossible; this isn't nice to look at, so use this for actually running a query."
   :friendly)
 
-(defmethod unprepare/unprepare-value [:hive-like String]
+(defmethod unprepare/unprepare-value [:guandata-hive-like String]
   [_ ^String s]
   ;; Because Spark SQL doesn't support parameterized queries (e.g. `?`) convert the entire String to hex and decode.
   ;; e.g. encode `abc` as `decode(unhex('616263'), 'utf-8')` to prevent SQL injection
@@ -221,37 +213,37 @@
     :paranoid (format "decode(unhex('%s'), 'utf-8')" (codecs/bytes->hex (.getBytes s "UTF-8")))))
 
 ;; Hive/Spark SQL doesn't seem to like DATEs so convert it to a DATETIME first
-(defmethod unprepare/unprepare-value [:hive-like LocalDate]
+(defmethod unprepare/unprepare-value [:guandata-hive-like LocalDate]
   [driver t]
   (unprepare/unprepare-value driver (t/local-date-time t (t/local-time 0))))
 
-(defmethod unprepare/unprepare-value [:hive-like OffsetDateTime]
+(defmethod unprepare/unprepare-value [:guandata-hive-like OffsetDateTime]
   [_ t]
   (format "to_utc_timestamp('%s', '%s')" (u.date/format-sql (t/local-date-time t)) (t/zone-offset t)))
 
-(defmethod unprepare/unprepare-value [:hive-like ZonedDateTime]
+(defmethod unprepare/unprepare-value [:guandata-hive-like ZonedDateTime]
   [_ t]
   (format "to_utc_timestamp('%s', '%s')" (u.date/format-sql (t/local-date-time t)) (t/zone-id t)))
 
 ;; Hive/Spark SQL doesn't seem to like DATEs so convert it to a DATETIME first
-(defmethod sql-jdbc.execute/set-parameter [:hive-like LocalDate]
+(defmethod sql-jdbc.execute/set-parameter [:guandata-hive-like LocalDate]
   [driver ps i t]
   (sql-jdbc.execute/set-parameter driver ps i (t/local-date-time t (t/local-time 0))))
 
 ;; TIMEZONE FIXME — not sure what timezone the results actually come back as
-(defmethod sql-jdbc.execute/read-column-thunk [:hive-like Types/TIME]
+(defmethod sql-jdbc.execute/read-column-thunk [:guandata-hive-like Types/TIME]
   [_ ^ResultSet rs _rsmeta ^Integer i]
   (fn []
     (when-let [t (.getTimestamp rs i)]
       (t/offset-time (t/local-time t) (t/zone-offset 0)))))
 
-(defmethod sql-jdbc.execute/read-column-thunk [:hive-like Types/DATE]
+(defmethod sql-jdbc.execute/read-column-thunk [:guandata-hive-like Types/DATE]
   [_ ^ResultSet rs _rsmeta ^Integer i]
   (fn []
     (when-let [t (.getDate rs i)]
       (t/zoned-date-time (t/local-date t) (t/local-time 0) (t/zone-id "UTC")))))
 
-(defmethod sql-jdbc.execute/read-column-thunk [:hive-like Types/TIMESTAMP]
+(defmethod sql-jdbc.execute/read-column-thunk [:guandata-hive-like Types/TIMESTAMP]
   [_ ^ResultSet rs _rsmeta ^Integer i]
   (fn []
     (when-let [t (.getTimestamp rs i)]
