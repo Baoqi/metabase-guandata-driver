@@ -3,10 +3,14 @@ info:
   version: 1.0.0
   description: Allows Metabase to connect to Guandata.
 driver:
+  - name: hive-like
+    lazy-load: true
+    abstract: true
+    parent: sql-jdbc
   - name: guandata
     display-name: Guandata
     lazy-load: true
-    parent: sparksql
+    parent: hive-like
     connection-properties:
       - host
       - merge:
