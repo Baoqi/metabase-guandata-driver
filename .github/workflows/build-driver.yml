@@ -38,7 +38,7 @@ jobs:
           java-version: '11'
 
       - name: Build with Maven
-        run: cd guandata-jdbc-driver && mvn --batch-mode clean package -DskipTests && mv target/guandata-jdbc-2.0.0-SNAPSHOT.jar ../metabase-guandata-driver/jdbc_driver/
+        run: mkdir -p metabase-guandata-driver/jdbc_driver/ && cd guandata-jdbc-driver && mvn --batch-mode clean package -DskipTests && mv target/guandata-jdbc-2.0.0-SNAPSHOT.jar ../metabase-guandata-driver/jdbc_driver/
 
       - name: Install clojure tools
         uses: DeLaGuardo/setup-clojure@3.7
