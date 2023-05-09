@@ -204,47 +204,48 @@
   strings so SQL injection is impossible; this isn't nice to look at, so use this for actually running a query."
   :friendly)
 
-(defmethod unprepare/unprepare-value [:guandata-hive-like String]
-  [_ ^String s]
-  ;; Because Spark SQL doesn't support parameterized queries (e.g. `?`) convert the entire String to hex and decode.
-  ;; e.g. encode `abc` as `decode(unhex('616263'), 'utf-8')` to prevent SQL injection
-  (case *param-splice-style*
-    :friendly (str \' (sql.u/escape-sql s :backslashes) \')
-    :paranoid (format "decode(unhex('%s'), 'utf-8')" (codecs/bytes->hex (.getBytes s "UTF-8")))))
-
-;; Hive/Spark SQL doesn't seem to like DATEs so convert it to a DATETIME first
+;(defmethod unprepare/unprepare-value [:guandata-hive-like String]
+;  [_ ^String s]
+;  ;; Because Spark SQL doesn't support parameterized queries (e.g. `?`) convert the entire String to hex and decode.
+;  ;; e.g. encode `abc` as `decode(unhex('616263'), 'utf-8')` to prevent SQL injection
+;  (case *param-splice-style*
+;    :friendly (str \' (sql.u/escape-sql s :backslashes) \')
+;    :paranoid (format "decode(unhex('%s'), 'utf-8')" (codecs/bytes->hex (.getBytes s "UTF-8")))))
+;
+;;; Hive/Spark SQL doesn't seem to like DATEs so convert it to a DATETIME first
 (defmethod unprepare/unprepare-value [:guandata-hive-like LocalDate]
-  [driver t]
-  (unprepare/unprepare-value driver (t/local-date-time t (t/local-time 0))))
+  [_ t]
+  (format "'%s'" (subs (u.date/format-sql (t/local-date-time t)) 0 19)))
+
 
 (defmethod unprepare/unprepare-value [:guandata-hive-like OffsetDateTime]
   [_ t]
-  (format "to_utc_timestamp('%s', '%s')" (u.date/format-sql (t/local-date-time t)) (t/zone-offset t)))
+  (format "'%s'" (subs (u.date/format-sql (t/local-date-time t)) 0 19)))
 
 (defmethod unprepare/unprepare-value [:guandata-hive-like ZonedDateTime]
   [_ t]
-  (format "to_utc_timestamp('%s', '%s')" (u.date/format-sql (t/local-date-time t)) (t/zone-id t)))
+  (format "'%s'" (subs (u.date/format-sql (t/local-date-time t)) 0 19)))
 
 ;; Hive/Spark SQL doesn't seem to like DATEs so convert it to a DATETIME first
-(defmethod sql-jdbc.execute/set-parameter [:guandata-hive-like LocalDate]
-  [driver ps i t]
-  (sql-jdbc.execute/set-parameter driver ps i (t/local-date-time t (t/local-time 0))))
+;(defmethod sql-jdbc.execute/set-parameter [:guandata-hive-like LocalDate]
+;  [driver ps i t]
+;  (sql-jdbc.execute/set-parameter driver ps i (t/local-date-time t (t/local-time 0))))
 
 ;; TIMEZONE FIXME — not sure what timezone the results actually come back as
-(defmethod sql-jdbc.execute/read-column-thunk [:guandata-hive-like Types/TIME]
-  [_ ^ResultSet rs _rsmeta ^Integer i]
-  (fn []
-    (when-let [t (.getTimestamp rs i)]
-      (t/offset-time (t/local-time t) (t/zone-offset 0)))))
-
-(defmethod sql-jdbc.execute/read-column-thunk [:guandata-hive-like Types/DATE]
-  [_ ^ResultSet rs _rsmeta ^Integer i]
-  (fn []
-    (when-let [t (.getDate rs i)]
-      (t/zoned-date-time (t/local-date t) (t/local-time 0) (t/zone-id "UTC")))))
-
-(defmethod sql-jdbc.execute/read-column-thunk [:guandata-hive-like Types/TIMESTAMP]
-  [_ ^ResultSet rs _rsmeta ^Integer i]
-  (fn []
-    (when-let [t (.getTimestamp rs i)]
-      (t/zoned-date-time (t/local-date-time t) (t/zone-id "UTC")))))
+;(defmethod sql-jdbc.execute/read-column-thunk [:guandata-hive-like Types/TIME]
+;  [_ ^ResultSet rs _rsmeta ^Integer i]
+;  (fn []
+;    (when-let [t (.getTimestamp rs i)]
+;      (t/offset-time (t/local-time t) (t/zone-offset 0)))))
+;
+;(defmethod sql-jdbc.execute/read-column-thunk [:guandata-hive-like Types/DATE]
+;  [_ ^ResultSet rs _rsmeta ^Integer i]
+;  (fn []
+;    (when-let [t (.getDate rs i)]
+;      (t/zoned-date-time (t/local-date t) (t/local-time 0) (t/zone-id "UTC")))))
+;
+;(defmethod sql-jdbc.execute/read-column-thunk [:guandata-hive-like Types/TIMESTAMP]
+;  [_ ^ResultSet rs _rsmeta ^Integer i]
+;  (fn []
+;    (when-let [t (.getTimestamp rs i)]
+;      (t/zoned-date-time (t/local-date-time t) (t/zone-id "UTC")))))
