@@ -49,29 +49,6 @@
     ((get-method sql-jdbc.conn/data-warehouse-connection-pool-properties :sql-jdbc) driver database)
     {"preferredTestQuery" "SELECT 1"}))
 
-(defmethod sql-jdbc.sync/database-type->base-type :hive-like
-  [_ database-type]
-  (condp re-matches (name database-type)
-    #"boolean"          :type/Boolean
-    #"tinyint"          :type/Integer
-    #"smallint"         :type/Integer
-    #"int"              :type/Integer
-    #"bigint"           :type/BigInteger
-    #"float"            :type/Float
-    #"double"           :type/Float
-    #"double precision" :type/Double
-    #"decimal.*"        :type/Decimal
-    #"char.*"           :type/Text
-    #"varchar.*"        :type/Text
-    #"string.*"         :type/Text
-    #"binary*"          :type/*
-    #"date"             :type/Date
-    #"time"             :type/Time
-    #"timestamp"        :type/DateTime
-    #"interval"         :type/*
-    #"array.*"          :type/Array
-    #"map"              :type/Dictionary
-    #".*"               :type/*))
 
 (defmethod sql.qp/honey-sql-version :hive-like
   [_driver]

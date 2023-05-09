@@ -109,6 +109,73 @@
        :sendTimeAsDatetime false}
       (sql-jdbc.common/handle-additional-options details)))
 
+(def ^:private database-type->clickhouse-base-type
+  (sql-jdbc.sync/pattern-based-database-type->base-type
+    [[#"Array" :type/Array]
+     [#"Bool" :type/Boolean]
+     [#"DateTime64" :type/DateTime]
+     [#"DateTime" :type/DateTime]
+     [#"Date" :type/Date]
+     [#"Decimal" :type/Decimal]
+     [#"Enum8" :type/Text]
+     [#"Enum16" :type/Text]
+     [#"FixedString" :type/TextLike]
+     [#"Float32" :type/Float]
+     [#"Float64" :type/Float]
+     [#"Int8" :type/Integer]
+     [#"Int16" :type/Integer]
+     [#"Int32" :type/Integer]
+     [#"Int64" :type/BigInteger]
+     [#"IPv4" :type/IPAddress]
+     [#"IPv6" :type/IPAddress]
+     [#"Map" :type/Dictionary]
+     [#"String" :type/Text]
+     [#"Tuple" :type/*]
+     [#"UInt8" :type/Integer]
+     [#"UInt16" :type/Integer]
+     [#"UInt32" :type/Integer]
+     [#"UInt64" :type/BigInteger]
+     [#"UUID" :type/UUID]]))
+
+(defmethod sql-jdbc.sync/database-type->base-type :guandata
+  [_ database-type]
+  (let [clickhouse-base-type (database-type->clickhouse-base-type
+                               (let [normalized ;; extract the type from Nullable or LowCardinality first
+                                     (str/replace (name database-type)
+                                                  #"(?:Nullable|LowCardinality)\((\S+)\)"
+                                                  "$1")]
+                                 (cond
+                                   (str/starts-with? normalized "Array(") "Array"
+                                   (str/starts-with? normalized "Map(") "Map"
+                                   :else normalized)))
+        ]
+
+    (if (= clickhouse-base-type :type/*)
+      (condp re-matches (name database-type)
+        #"boolean"          :type/Boolean
+        #"tinyint"          :type/Integer
+        #"smallint"         :type/Integer
+        #"int"              :type/Integer
+        #"bigint"           :type/BigInteger
+        #"float"            :type/Float
+        #"double"           :type/Float
+        #"double precision" :type/Double
+        #"decimal.*"        :type/Decimal
+        #"char.*"           :type/Text
+        #"varchar.*"        :type/Text
+        #"string.*"         :type/Text
+        #"binary*"          :type/*
+        #"date"             :type/Date
+        #"time"             :type/Time
+        #"timestamp"        :type/DateTime
+        #"interval"         :type/*
+        #"array.*"          :type/Array
+        #"map"              :type/Dictionary
+        #".*"               :type/*)
+      clickhouse-base-type)
+    )
+  )
+
 (defn- dash-to-underscore [s]
   (when s
     (str/replace s #"-" "_")))
@@ -140,7 +207,7 @@
                ]
            {:name              col-name
             :database-type     data-type
-            :base-type         (sql-jdbc.sync/database-type->base-type :hive-like (keyword data-type))
+            :base-type         (sql-jdbc.sync/database-type->base-type :guandata (keyword data-type))
             :database-position idx}))))})
 
 ;; bound variables are not supported in Spark SQL (maybe not Hive either, haven't checked)
