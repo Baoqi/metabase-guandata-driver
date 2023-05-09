@@ -1,0 +1,16 @@
+{:paths
+ ["src" "resources"]
+
+ :deps
+ {com.guandata.sql/guandata-jdbc {:local/root "jdbc_driver/guandata-jdbc-2.0.0-SNAPSHOT.jar"}}
+
+ ;; build the driver with clojure -X:build
+ :aliases
+ {:build
+  {:extra-deps {metabase/metabase-core {:local/root "../metabase"}
+                metabase/build-drivers {:local/root "../metabase/bin/build-drivers"}}
+   :exec-fn    build-drivers.build-driver/build-driver!
+   :exec-args  {:driver      :guandata
+                :project-dir "."
+                :target-dir  "./target"}}}}
+

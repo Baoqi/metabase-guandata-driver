@@ -1,0 +1,23 @@
+info:
+  name: Metabase Guandata Driver
+  version: 1.0.0
+  description: Allows Metabase to connect to Guandata.
+driver:
+  - name: guandata
+    display-name: Guandata
+    lazy-load: true
+    parent: sparksql
+    connection-properties:
+      - host
+      - merge:
+          - port
+          - placeholder: 8080
+      - user
+      - password
+      - ssl
+      - additional-options
+init:
+  - step: load-namespace
+    namespace: metabase.driver.guandata
+  - step: register-jdbc-driver
+    class: com.guandata.sql.GuandataDriver
