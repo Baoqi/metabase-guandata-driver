@@ -119,16 +119,9 @@
   {:tables
    (with-open [conn (jdbc/get-connection (sql-jdbc.conn/db->pooled-connection-spec database))]
      (set
-       (for [{:keys [database tablename tab_name], table-namespace :namespace} (jdbc/query {:connection conn} ["show tables"])]
-         {:name   (or tablename tab_name) ; column name differs depending on server (SparkSQL, hive, Impala)
-          :schema (or (not-empty database)
-                      (not-empty table-namespace))})))})
-
-;; Hive describe table result has commented rows to distinguish partitions
-(defn- valid-describe-table-row? [{:keys [col_name data_type]}]
-  (every? (every-pred (complement str/blank?)
-                      (complement #(str/starts-with? % "#")))
-          [col_name data_type]))
+       (for [{:keys [name], table-namespace :namespace} (jdbc/query {:connection conn} ["show tables"])]
+         {:name   name ; column name differs depending on server (SparkSQL, hive, Impala)
+          :schema "default"})))})
 
 ;; workaround for SPARK-9686 Spark Thrift server doesn't return correct JDBC metadata
 (defmethod driver/describe-table :guandata
@@ -143,8 +136,8 @@
                                                                        (dash-to-underscore schema)
                                                                        (dash-to-underscore table-name)))])]
        (set
-         (for [[idx {col-name :col_name, data-type :data_type, :as result}] (m/indexed results)
-               :when (valid-describe-table-row? result)]
+         (for [[idx {col-name :name, data-type :type, :as result}] (m/indexed results)
+               ]
            {:name              col-name
             :database-type     data-type
             :base-type         (sql-jdbc.sync/database-type->base-type :hive-like (keyword data-type))
