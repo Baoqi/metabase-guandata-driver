@@ -77,7 +77,7 @@
 (defmethod sql.qp/date [:guandata-hive-like :hour-of-day]     [_ _ expr] [:hour (h2x/->timestamp expr)])
 (defmethod sql.qp/date [:guandata-hive-like :day]             [_ _ expr] (date-trunc :day expr))
 (defmethod sql.qp/date [:guandata-hive-like :day-of-month]    [_ _ expr] [:dayofmonth (h2x/->timestamp expr)])
-(defmethod sql.qp/date [:guandata-hive-like :day-of-year]     [_ _ expr] (h2x/->integer (date-format "D" (h2x/->timestamp expr))))
+(defmethod sql.qp/date [:guandata-hive-like :day-of-year]     [_ _ expr] [:dayofyear (h2x/->timestamp expr)])
 (defmethod sql.qp/date [:guandata-hive-like :month]           [_ _ expr] (date-trunc :month expr))
 (defmethod sql.qp/date [:guandata-hive-like :month-of-year]   [_ _ expr] [:month (h2x/->timestamp expr)])
 (defmethod sql.qp/date [:guandata-hive-like :quarter]         [_ _ expr] (date-trunc :quarter expr))
