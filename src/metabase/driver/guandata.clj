@@ -135,7 +135,20 @@
      [#"UInt16" :type/Integer]
      [#"UInt32" :type/Integer]
      [#"UInt64" :type/BigInteger]
-     [#"UUID" :type/UUID]]))
+     [#"UUID" :type/UUID]
+     ;; spark related
+     [#"STRING" :type/Text]
+     [#"FLOAT" :type/Float]
+     [#"DOUBLE" :type/Float]
+     [#"DECIMAL" :type/Decimal]
+     [#"ARRAY" :type/Array]
+     [#"BOOL" :type/Boolean]
+     [#"SHORT" :type/Integer]
+     [#"LONG" :type/BigInteger]
+     [#"INT" :type/Integer]
+     [#"DATE" :type/Date]
+     [#"TIMESTAMP" :type/DateTime]
+     ]))
 
 (defmethod sql-jdbc.sync/database-type->base-type :guandata
   [_ database-type]
